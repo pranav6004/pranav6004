@@ -53,7 +53,6 @@
 ### 📊 GitHub Stats
 
 <p>
-  <img src="https://github-readme-stats.vercel.app/api?username=pranav6004&show_icons=true&theme=midnight-purple&hide_border=true&bg_color=0A0A14&title_color=6C5CE7&icon_color=A29BFE&text_color=999" height="165" alt="GitHub Stats"/>
   <img src="https://github-readme-streak-stats.herokuapp.com?user=pranav6004&theme=midnight-purple&hide_border=true&background=0A0A14&ring=6C5CE7&fire=E17055&currStreakLabel=A29BFE" height="165" alt="GitHub Streak"/>
 </p>
 
