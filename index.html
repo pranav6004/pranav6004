@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Welcome to My Room | Developer Portfolio</title>
+    <meta name="description" content="An interactive pixel art developer room. Walk around, explore objects, and learn about me.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        html,body{width:100%;height:100%;overflow:hidden;background:#0a0a14;font-family:'Press Start 2P',monospace}
+        #game-container{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+        canvas{image-rendering:pixelated;image-rendering:crisp-edges;cursor:default}
+
+        /* Info Panel */
+        #info-panel{
+            position:fixed;top:0;right:-420px;width:400px;max-width:92vw;height:100vh;
+            background:rgba(12,12,22,0.96);border-left:3px solid #6C5CE7;
+            transition:right .3s cubic-bezier(.4,0,.2,1);z-index:100;
+            overflow-y:auto;padding:28px 22px;color:#bbb;
+            backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+        }
+        #info-panel.open{right:0}
+        #info-panel h2{color:#A29BFE;font-size:13px;margin-bottom:20px;line-height:1.7;letter-spacing:.5px}
+        #info-panel p{font-size:9px;line-height:2;margin-bottom:10px;color:#999}
+        #info-panel h3{color:#FDCB6E;font-size:10px;margin:18px 0 8px;line-height:1.7}
+        #info-panel .close-btn{
+            position:sticky;top:0;float:right;background:rgba(108,92,231,0.15);
+            border:2px solid #6C5CE7;color:#A29BFE;font-family:'Press Start 2P',monospace;
+            font-size:9px;padding:6px 10px;cursor:pointer;z-index:10;
+        }
+        #info-panel .close-btn:hover{background:#6C5CE7;color:#fff}
+        #info-panel .tag{
+            display:inline-block;background:rgba(108,92,231,0.12);
+            border:1px solid rgba(108,92,231,0.4);color:#A29BFE;
+            font-size:7px;padding:4px 7px;margin:2px;line-height:1.6;
+        }
+        #info-panel .tags{margin:6px 0 14px}
+        #info-panel a{color:#74B9FF;text-decoration:none;font-size:9px;line-height:2}
+        #info-panel a:hover{color:#A29BFE}
+        #info-panel .item{font-size:9px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);color:#999;line-height:2}
+        #info-panel .project{border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:14px;margin-bottom:14px}
+        #info-panel .social-links a{display:block;padding:7px 0;font-size:9px;border-bottom:1px solid rgba(255,255,255,0.05);line-height:2}
+
+        /* Instructions Overlay */
+        #instructions{
+            position:fixed;inset:0;background:rgba(0,0,0,0.88);
+            display:flex;flex-direction:column;align-items:center;justify-content:center;
+            z-index:200;color:#fff;text-align:center;cursor:pointer;
+        }
+        #instructions h1{font-size:18px;margin-bottom:28px;color:#6C5CE7;line-height:1.6}
+        #instructions .keys{display:flex;gap:4px;margin:4px 0;justify-content:center}
+        #instructions .key{
+            width:38px;height:38px;border:2px solid #6C5CE7;
+            display:flex;align-items:center;justify-content:center;
+            font-size:13px;color:#A29BFE;border-radius:4px;
+        }
+        #instructions p{font-size:10px;margin:6px 0;color:#888;line-height:1.8}
+        #instructions .hint{font-size:9px;color:#555;margin-top:28px;animation:blink 1.5s infinite}
+        @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+        /* Mobile Touch Controls */
+        .touch-controls{position:fixed;bottom:16px;z-index:50;display:none}
+        @media(hover:none)and(pointer:coarse){.touch-controls{display:block}}
+        .dpad{left:16px}
+        .action-area{right:16px}
+        .touch-btn{
+            width:48px;height:48px;background:rgba(108,92,231,0.25);
+            border:2px solid rgba(108,92,231,0.45);border-radius:8px;
+            display:flex;align-items:center;justify-content:center;
+            color:#A29BFE;font-size:16px;user-select:none;-webkit-user-select:none;touch-action:none;
+        }
+        .touch-btn:active,.touch-btn.pressed{background:rgba(108,92,231,0.55)}
+
+        /* Scrollbar */
+        #info-panel::-webkit-scrollbar{width:4px}
+        #info-panel::-webkit-scrollbar-track{background:transparent}
+        #info-panel::-webkit-scrollbar-thumb{background:#6C5CE7;border-radius:2px}
+    </style>
+</head>
+<body>
+    <div id="game-container"><canvas id="game"></canvas></div>
+
+    <div id="info-panel">
+        <button class="close-btn" onclick="closePanel()">✕ ESC</button>
+        <div id="panel-content"></div>
+    </div>
+
+    <div id="instructions" onclick="startGame()">
+        <h1>Welcome to My Room</h1>
+        <div class="keys"><div style="width:38px"></div><div class="key">W</div></div>
+        <div class="keys"><div class="key">A</div><div class="key">S</div><div class="key">D</div></div>
+        <p style="margin-top:14px">Move around with <span style="color:#A29BFE">WASD</span> or <span style="color:#A29BFE">Arrow Keys</span></p>
+        <p>Press <span style="color:#6C5CE7">E</span> or <span style="color:#6C5CE7">click objects</span> to interact</p>
+        <div class="hint">[ Click anywhere to start ]</div>
+    </div>
+
+    <div class="touch-controls dpad" id="dpad">
+        <div style="display:grid;grid-template-columns:repeat(3,48px);grid-template-rows:repeat(3,48px);gap:3px">
+            <div></div><div class="touch-btn" data-dir="up">▲</div><div></div>
+            <div class="touch-btn" data-dir="left">◀</div><div></div><div class="touch-btn" data-dir="right">▶</div>
+            <div></div><div class="touch-btn" data-dir="down">▼</div><div></div>
+        </div>
+    </div>
+    <div class="touch-controls action-area">
+        <div class="touch-btn" data-action="interact" style="width:56px;height:56px;border-radius:50%;font-size:13px">E</div>
+    </div>
+
+<script>
+(function(){
+'use strict';
+
+// ═══════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════
+const NW = 480, NH = 320, TILE = 16;
+const COLS = NW / TILE, ROWS = NH / TILE;
+
+// ═══════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+canvas.width = NW; canvas.height = NH;
+ctx.imageSmoothingEnabled = false;
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let started = false, panelOpen = false, nearObj = null, gameTime = 0;
+const keys = {};
+const touchDirs = { up:false, down:false, left:false, right:false, action:false };
+
+// ═══════════════════════════════════════════
+// PLAYER
+// ═══════════════════════════════════════════
+const player = {
+    x: 14 * TILE, y: 9 * TILE,
+    dir: 0, frame: 0, frameTimer: 0,
+    speed: 1.6, moving: false
+};
+
+// ═══════════════════════════════════════════
+// OBJECTS
+// ═══════════════════════════════════════════
+const objects = [
+    { id:'poster',     tx:3,  ty:0,  tw:3, th:2, wall:true },
+    { id:'bookshelf',  tx:11, ty:0,  tw:5, th:2, wall:true },
+    { id:'trophy',     tx:24, ty:0,  tw:4, th:2, wall:true },
+    { id:'desk',       tx:3,  ty:4,  tw:6, th:3 },
+    { id:'console',    tx:23, ty:7,  tw:3, th:2 },
+    { id:'cat',        tx:16, ty:10, tw:2, th:1, noBlock:true },
+    { id:'whiteboard', tx:2,  ty:13, tw:5, th:3 },
+    { id:'coffee',     tx:13, ty:14, tw:4, th:2 },
+    { id:'camera',     tx:24, ty:13, tw:3, th:2 },
+    { id:'plant',      tx:27, ty:15, tw:2, th:3 },
+    { id:'door',       tx:14, ty:18, tw:2, th:2, wall:true },
+];
+
+// ═══════════════════════════════════════════
+// OBJECT INFO CONTENT
+// ═══════════════════════════════════════════
+const infoData = {
+    poster: {
+        title: '👋 About Me',
+        html: '<p>Hey! I\'m a maker — half developer, half artist.</p>' +
+              '<p>I build things at the intersection of creativity and code. I believe software should feel alive — every interaction should spark curiosity.</p>' +
+              '<p>When I\'m not shipping code, you\'ll find me exploring coffee shops, taking photos, or getting lost in a good indie game.</p>' +
+              '<p style="color:#A29BFE;margin-top:14px;font-style:italic">"The Workshop isn\'t where my projects live.<br>It\'s where my curiosity lives."</p>'
+    },
+    bookshelf: {
+        title: '📚 Projects',
+        html: '<div class="project"><h3>📖 Lorekeeper</h3><p>A storytelling and world-building platform.</p>' +
+              '<div class="tags"><span class="tag">Web</span><span class="tag">Full-Stack</span></div>' +
+              '<a href="https://lorekeeper.cc/" target="_blank">→ Visit Lorekeeper</a></div>' +
+              '<div class="project"><h3>🧠 NovaDL</h3><p>Deep learning framework built from scratch.</p>' +
+              '<div class="tags"><span class="tag">Python</span><span class="tag">Deep Learning</span><span class="tag">NumPy</span></div>' +
+              '<a href="https://github.com/pranav6004/NovaDL" target="_blank">→ View on GitHub</a></div>' +
+              '<div class="project"><h3>👁️ FaceRecog</h3><p>Face recognition system.</p>' +
+              '<div class="tags"><span class="tag">Python</span><span class="tag">Computer Vision</span><span class="tag">ML</span></div>' +
+              '<a href="https://github.com/pranav6004/facerecog" target="_blank">→ View on GitHub</a></div>' +
+              '<div class="project"><h3>❓ Ask Away</h3><p>Interactive Q&A platform.</p>' +
+              '<div class="tags"><span class="tag">Next.js</span><span class="tag">Vercel</span></div>' +
+              '<a href="https://ask-away-weld.vercel.app/" target="_blank">→ Try it Live</a></div>' +
+              '<div class="project"><h3>✅ Checkpoint</h3><p>Task and progress tracking tool.</p>' +
+              '<div class="tags"><span class="tag">JavaScript</span><span class="tag">Productivity</span></div>' +
+              '<a href="https://github.com/pranav6004/Checkpoint" target="_blank">→ View on GitHub</a></div>'
+    },
+    trophy: {
+        title: '🏆 Achievements',
+        html: '<div class="item">⭐ Open Source Contributor — 50+ PRs merged</div>' +
+              '<div class="item">🌟 1000+ GitHub Stars across projects</div>' +
+              '<div class="item">🥇 Hackathon Winner — "Best Creative Use of Tech"</div>' +
+              '<div class="item">📝 Published Writer — Dev.to & Medium</div>' +
+              '<div class="item">🎓 Self-taught developer since 2019</div>'
+    },
+    desk: {
+        title: '💻 Tech Stack',
+        html: '<h3>Languages</h3><div class="tags"><span class="tag">JavaScript</span><span class="tag">TypeScript</span>' +
+              '<span class="tag">Python</span><span class="tag">Rust</span><span class="tag">HTML/CSS</span><span class="tag">SQL</span></div>' +
+              '<h3>Frontend</h3><div class="tags"><span class="tag">React</span><span class="tag">Next.js</span>' +
+              '<span class="tag">Vue</span><span class="tag">Tailwind</span><span class="tag">Three.js</span></div>' +
+              '<h3>Backend</h3><div class="tags"><span class="tag">Node.js</span><span class="tag">FastAPI</span>' +
+              '<span class="tag">PostgreSQL</span><span class="tag">Redis</span><span class="tag">Docker</span></div>' +
+              '<h3>Tools</h3><div class="tags"><span class="tag">Git</span><span class="tag">Linux</span>' +
+              '<span class="tag">VS Code</span><span class="tag">Figma</span><span class="tag">Vercel</span></div>'
+    },
+    console: {
+        title: '🎮 Interests',
+        html: '<div class="item">🕹️ Retro gaming & indie titles</div>' +
+              '<div class="item">📸 Street & landscape photography</div>' +
+              '<div class="item">🎵 Music production & vinyl</div>' +
+              '<div class="item">⌨️ Mechanical keyboards</div>' +
+              '<div class="item">🤖 Creative coding & generative art</div>' +
+              '<div class="item">☕ Specialty coffee obsession</div>'
+    },
+    cat: {
+        title: '🐱 Meet Pixel',
+        html: '<p>This is Pixel, the office cat.</p>' +
+              '<p>Current status: <span style="color:#00E676">●</span> Napping</p>' +
+              '<p style="margin-top:8px">Responsibilities:</p>' +
+              '<div class="item">• Sitting on keyboard during deploys</div>' +
+              '<div class="item">• Judging code quality silently</div>' +
+              '<div class="item">• Expert rubber duck debugger</div>' +
+              '<p style="color:#636E72;margin-top:12px">"I\'ve reviewed your PR. It\'s acceptable." — Pixel</p>'
+    },
+    whiteboard: {
+        title: '📋 Current Focus',
+        html: '<h3>🔭 Exploring</h3><p>WebGPU shaders, Rust for WASM, creative coding</p>' +
+              '<h3>🔨 Building</h3><p>This interactive portfolio you\'re standing in right now!</p>' +
+              '<h3>📖 Reading</h3><p>"Designing Data-Intensive Applications" — Martin Kleppmann</p>' +
+              '<h3>🎯 Goals</h3>' +
+              '<div class="item">☐ Ship 3 open source projects</div>' +
+              '<div class="item">☐ Learn Rust properly</div>' +
+              '<div class="item">☑ Build an interactive GitHub profile ✓</div>'
+    },
+    coffee: {
+        title: '☕ Let\'s Connect',
+        html: '<p>Want to chat? Always up for a virtual coffee.</p>' +
+              '<div class="social-links">' +
+              '<a href="https://github.com/pranav6004" target="_blank">🐙 GitHub → @pranav6004</a>' +
+              '<a href="https://www.linkedin.com/in/pranav-guraka-b23062238/" target="_blank">💼 LinkedIn → Pranav Guraka</a>' +
+              '<a href="mailto:pranavguraka@gmail.com">📧 Email → pranavguraka@gmail.com</a>' +
+              '<a href="https://dev.lorekeeper.cc" target="_blank">🌐 Portfolio → dev.lorekeeper.cc</a></div>'
+    },
+    camera: {
+        title: '📸 Photography',
+        html: '<p>Capturing moments between the pixels.</p>' +
+              '<p>Shooting with Fujifilm X-T4 & vintage glass.</p>' +
+              '<h3>Favorite Subjects</h3>' +
+              '<div class="item">🏙️ Street photography</div>' +
+              '<div class="item">🌄 Landscapes & golden hour</div>' +
+              '<div class="item">🌃 Night cityscapes</div>' +
+              '<div class="item">☕ Café still life</div>' +
+              '<p style="margin-top:12px"><a href="#">→ View Gallery</a></p>'
+    },
+    plant: {
+        title: '🪴 Harold',
+        html: '<p>This is Harold. He\'s been through a lot.</p>' +
+              '<p style="margin-top:6px">Survived:</p>' +
+              '<div class="item">• 47 production deployments</div>' +
+              '<div class="item">• 3 office moves</div>' +
+              '<div class="item">• That one coffee spill incident</div>' +
+              '<div class="item">• Being watered with energy drinks (once)</div>' +
+              '<p style="color:#00B894;margin-top:12px">Status: Still thriving 🌱</p>'
+    },
+    door: {
+        title: '🚪 Exit',
+        html: '<p>Thanks for visiting my room!</p>' +
+              '<div class="social-links" style="margin-top:12px">' +
+              '<a href="https://github.com/pranav6004" target="_blank">→ Back to GitHub Profile</a>' +
+              '<a href="https://github.com/pranav6004?tab=repositories" target="_blank">→ View My Repositories</a>' +
+              '<a href="https://dev.lorekeeper.cc" target="_blank">→ Visit My Portfolio</a></div>' +
+              '<p style="color:#636E72;margin-top:16px">Come back anytime.<br>The coffee is always fresh. ☕</p>'
+    }
+};
+
+// ═══════════════════════════════════════════
+// COLLISION MAP
+// ═══════════════════════════════════════════
+const coll = [];
+function buildCollision() {
+    for (let r = 0; r < ROWS; r++) {
+        coll[r] = [];
+        for (let c = 0; c < COLS; c++) {
+            coll[r][c] = (r < 2 || r >= ROWS - 1 || c === 0 || c === COLS - 1) ? 1 : 0;
+        }
+    }
+    for (const o of objects) {
+        if (o.noBlock || o.wall) continue;
+        for (let r = o.ty; r < o.ty + o.th; r++) {
+            for (let c = o.tx; c < o.tx + o.tw; c++) {
+                if (r >= 0 && r < ROWS && c >= 0 && c < COLS) coll[r][c] = 1;
+            }
+        }
+    }
+}
+
+function tileAt(px, py) {
+    const c = Math.floor(px / TILE), r = Math.floor(py / TILE);
+    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return 1;
+    return coll[r][c];
+}
+
+function blocked(x, y) {
+    // Player hitbox: 8×6 at bottom center of sprite
+    const hx = x + 4, hy = y + 10, hw = 8, hh = 5;
+    return tileAt(hx, hy) || tileAt(hx + hw, hy) || tileAt(hx, hy + hh) || tileAt(hx + hw, hy + hh);
+}
+
+// ═══════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════
+const particles = [];
+
+function spawnSteam() {
+    const cx = 15 * TILE + 4, cy = 14 * TILE + 2;
+    particles.push({
+        x: cx + Math.random() * 6 - 3,
+        y: cy,
+        vx: (Math.random() - 0.5) * 0.15,
+        vy: -0.3 - Math.random() * 0.2,
+        life: 1,
+        decay: 0.008 + Math.random() * 0.006,
+        size: 1 + Math.random(),
+        type: 'steam'
+    });
+}
+
+function spawnDust() {
+    particles.push({
+        x: TILE + Math.random() * (NW - 2 * TILE),
+        y: 2 * TILE + Math.random() * (NH - 3 * TILE),
+        vx: (Math.random() - 0.5) * 0.08,
+        vy: (Math.random() - 0.5) * 0.06,
+        life: 1,
+        decay: 0.002 + Math.random() * 0.002,
+        size: 1,
+        type: 'dust'
+    });
+}
+
+function updateParticles(dt) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.life -= p.decay * dt;
+        if (p.life <= 0) particles.splice(i, 1);
+    }
+}
+
+function drawParticles() {
+    for (const p of particles) {
+        const a = Math.max(0, p.life);
+        if (p.type === 'steam') {
+            ctx.fillStyle = `rgba(200,210,220,${a * 0.5})`;
+        } else {
+            ctx.fillStyle = `rgba(255,240,200,${a * 0.25})`;
+        }
+        ctx.fillRect(Math.floor(p.x), Math.floor(p.y), Math.ceil(p.size), Math.ceil(p.size));
+    }
+}
+
+// ═══════════════════════════════════════════
+// INPUT
+// ═══════════════════════════════════════════
+document.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if (e.code === 'KeyE' || e.code === 'Space') interact();
+    if (e.code === 'Escape') closePanel();
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+// Touch controls
+document.querySelectorAll('[data-dir]').forEach(btn => {
+    const dir = btn.dataset.dir;
+    btn.addEventListener('touchstart', e => { e.preventDefault(); touchDirs[dir] = true; btn.classList.add('pressed'); }, {passive:false});
+    btn.addEventListener('touchend', e => { e.preventDefault(); touchDirs[dir] = false; btn.classList.remove('pressed'); }, {passive:false});
+    btn.addEventListener('touchcancel', e => { touchDirs[dir] = false; btn.classList.remove('pressed'); });
+});
+document.querySelector('[data-action]')?.addEventListener('touchstart', e => { e.preventDefault(); interact(); }, {passive:false});
+
+// Click-to-interact on canvas
+canvas.addEventListener('click', e => {
+    if (!started || panelOpen) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = NW / rect.width, scaleY = NH / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+    for (const obj of objects) {
+        const ox = obj.tx * TILE, oy = obj.ty * TILE;
+        const ow = obj.tw * TILE, oh = obj.th * TILE;
+        if (mx >= ox && mx <= ox + ow && my >= oy && my <= oy + oh) {
+            const pcx = player.x + 8, pcy = player.y + 8;
+            const ocx = ox + ow / 2, ocy = oy + oh / 2;
+            if (Math.hypot(pcx - ocx, pcy - ocy) < TILE * 4) {
+                showPanel(obj.id);
+                return;
+            }
+        }
+    }
+});
+
+// ═══════════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════════
+function resize() {
+    const ratio = NW / NH;
+    const w = window.innerWidth, h = window.innerHeight;
+    if (w / h > ratio) {
+        canvas.style.height = h + 'px';
+        canvas.style.width = Math.floor(h * ratio) + 'px';
+    } else {
+        canvas.style.width = w + 'px';
+        canvas.style.height = Math.floor(w / ratio) + 'px';
+    }
+}
+window.addEventListener('resize', resize);
+
+// ═══════════════════════════════════════════
+// DRAWING — ROOM
+// ═══════════════════════════════════════════
+function drawFloor() {
+    for (let r = 2; r < ROWS - 1; r++) {
+        ctx.fillStyle = r % 2 === 0 ? '#5A4236' : '#503B30';
+        ctx.fillRect(TILE, r * TILE, (COLS - 2) * TILE, TILE);
+        // Plank line
+        ctx.fillStyle = '#3D2E24';
+        ctx.fillRect(TILE, r * TILE + TILE - 1, (COLS - 2) * TILE, 1);
+        // Vertical seams staggered
+        const off = (r % 2) * TILE * 3;
+        for (let x = TILE + off; x < (COLS - 1) * TILE; x += TILE * 6) {
+            ctx.fillRect(x, r * TILE, 1, TILE - 1);
+        }
+    }
+    // Slight grain variation
+    ctx.fillStyle = 'rgba(0,0,0,0.015)';
+    for (let r = 2; r < ROWS - 1; r += 3) {
+        ctx.fillRect(TILE, r * TILE, (COLS - 2) * TILE, TILE);
+    }
+}
+
+function drawRug() {
+    const rx = 11 * TILE, ry = 7 * TILE, rw = 8 * TILE, rh = 6 * TILE;
+    // Rug base
+    ctx.fillStyle = '#2D1B4E';
+    ctx.fillRect(rx, ry, rw, rh);
+    // Outer border
+    ctx.fillStyle = '#6C5CE7';
+    ctx.fillRect(rx, ry, rw, 2); ctx.fillRect(rx, ry + rh - 2, rw, 2);
+    ctx.fillRect(rx, ry, 2, rh); ctx.fillRect(rx + rw - 2, ry, 2, rh);
+    // Inner border
+    ctx.fillStyle = '#A29BFE';
+    ctx.fillRect(rx + 5, ry + 5, rw - 10, 1); ctx.fillRect(rx + 5, ry + rh - 6, rw - 10, 1);
+    ctx.fillRect(rx + 5, ry + 5, 1, rh - 10); ctx.fillRect(rx + rw - 6, ry + 5, 1, rh - 10);
+    // Center diamond
+    const cx = rx + rw / 2, cy = ry + rh / 2;
+    ctx.fillStyle = '#A29BFE';
+    for (let i = 0; i < 6; i++) {
+        ctx.fillRect(cx - i, cy - 6 + i, 1, 1); ctx.fillRect(cx + i - 1, cy - 6 + i, 1, 1);
+        ctx.fillRect(cx - i, cy + 5 - i, 1, 1); ctx.fillRect(cx + i - 1, cy + 5 - i, 1, 1);
+    }
+}
+
+function drawWalls() {
+    // Top wall face
+    ctx.fillStyle = '#16213E';
+    ctx.fillRect(0, 0, NW, TILE * 2);
+    ctx.fillStyle = '#0F0F23';
+    ctx.fillRect(0, 0, NW, 3);
+    // Subtle wall texture
+    ctx.fillStyle = 'rgba(255,255,255,0.015)';
+    for (let y = 4; y < TILE * 2; y += 5) ctx.fillRect(0, y, NW, 1);
+    // Baseboard
+    ctx.fillStyle = '#3D3028';
+    ctx.fillRect(TILE, TILE * 2 - 3, (COLS - 2) * TILE, 3);
+
+    // Side walls
+    ctx.fillStyle = '#16213E';
+    ctx.fillRect(0, 0, TILE, NH);
+    ctx.fillRect((COLS - 1) * TILE, 0, TILE, NH);
+    // Side wall inner edge highlight
+    ctx.fillStyle = '#1E2A45';
+    ctx.fillRect(TILE - 2, TILE * 2, 2, (ROWS - 3) * TILE);
+    ctx.fillRect((COLS - 1) * TILE, TILE * 2, 2, (ROWS - 3) * TILE);
+
+    // Bottom wall
+    ctx.fillStyle = '#16213E';
+    ctx.fillRect(0, (ROWS - 1) * TILE, NW, TILE);
+    ctx.fillStyle = '#3D3028';
+    ctx.fillRect(TILE, (ROWS - 1) * TILE, (COLS - 2) * TILE, 3);
+}
+
+// ═══════════════════════════════════════════
+// DRAWING — WALL OBJECTS
+// ═══════════════════════════════════════════
+function drawWallObjects(t) {
+    drawPoster(3 * TILE, 0);
+    drawBookshelf(11 * TILE, 0, t);
+    drawTrophyShelf(24 * TILE, 0);
+    drawDoor(14 * TILE, 18 * TILE);
+}
+
+function drawPoster(x, y) {
+    // Frame
+    ctx.fillStyle = '#5D4E37';
+    ctx.fillRect(x + 6, y + 3, 36, 26);
+    // Inner bg
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillRect(x + 8, y + 5, 32, 22);
+    // Abstract pixel art
+    ctx.fillStyle = '#6C5CE7'; ctx.fillRect(x + 12, y + 9, 8, 8);
+    ctx.fillStyle = '#E17055'; ctx.fillRect(x + 22, y + 11, 10, 6);
+    ctx.fillStyle = '#00B894'; ctx.fillRect(x + 14, y + 19, 14, 5);
+    ctx.fillStyle = '#FDCB6E'; ctx.fillRect(x + 30, y + 7, 6, 6);
+    ctx.fillStyle = '#74B9FF'; ctx.fillRect(x + 10, y + 17, 4, 4);
+    // Highlight glow on active
+    if (nearObj && nearObj.id === 'poster') {
+        ctx.fillStyle = 'rgba(108,92,231,0.15)';
+        ctx.fillRect(x + 4, y + 1, 40, 30);
+    }
+}
+
+function drawBookshelf(x, y, t) {
+    // Back
+    ctx.fillStyle = '#3E2723';
+    ctx.fillRect(x + 2, y + 2, 76, 28);
+    // Shelves
+    ctx.fillStyle = '#5D4E37';
+    ctx.fillRect(x + 2, y + 15, 76, 2);
+    ctx.fillRect(x + 2, y + 28, 76, 2);
+    // Books - top shelf
+    const bookColors = ['#E17055','#0984E3','#00B894','#FDCB6E','#6C5CE7','#E84393','#FD79A8','#74B9FF','#A29BFE'];
+    let bx = x + 5;
+    for (let i = 0; i < 9; i++) {
+        const bw = 3 + (i % 3);
+        const bh = 10 + (i % 4);
+        ctx.fillStyle = bookColors[i];
+        ctx.fillRect(bx, y + 15 - bh, bw, bh);
+        bx += bw + 1;
+    }
+    // Books - bottom shelf
+    bx = x + 4;
+    for (let i = 0; i < 8; i++) {
+        const bw = 4 + (i % 3);
+        const bh = 9 + (i % 3);
+        ctx.fillStyle = bookColors[(i + 3) % bookColors.length];
+        ctx.fillRect(bx, y + 28 - bh, bw, bh);
+        bx += bw + 1;
+    }
+}
+
+function drawTrophyShelf(x, y) {
+    // Shelf back
+    ctx.fillStyle = '#3E2723';
+    ctx.fillRect(x + 2, y + 2, 60, 28);
+    // Shelf surface
+    ctx.fillStyle = '#5D4E37';
+    ctx.fillRect(x + 2, y + 18, 60, 2);
+    ctx.fillRect(x + 2, y + 28, 60, 2);
+    // Trophy 1 - cup
+    ctx.fillStyle = '#F9CA24';
+    ctx.fillRect(x + 10, y + 8, 8, 10);
+    ctx.fillRect(x + 8, y + 8, 12, 3);
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 12, y + 16, 4, 2);
+    ctx.fillRect(x + 10, y + 16, 8, 1);
+    // Trophy 2 - star
+    ctx.fillStyle = '#F9CA24';
+    ctx.fillRect(x + 30, y + 22, 6, 6);
+    ctx.fillRect(x + 28, y + 24, 10, 2);
+    ctx.fillStyle = '#E17055';
+    ctx.fillRect(x + 31, y + 23, 4, 4);
+    // Trophy 3 - medal
+    ctx.fillStyle = '#A29BFE';
+    ctx.fillRect(x + 48, y + 10, 8, 8);
+    ctx.fillStyle = '#6C5CE7';
+    ctx.fillRect(x + 50, y + 12, 4, 4);
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 50, y + 16, 4, 2);
+}
+
+function drawDoor(x, y) {
+    // Frame
+    ctx.fillStyle = '#3D3028';
+    ctx.fillRect(x - 2, y, 36, TILE * 2);
+    // Door body
+    ctx.fillStyle = '#5D4037';
+    ctx.fillRect(x, y + 2, 32, TILE * 2 - 2);
+    // Panels
+    ctx.fillStyle = '#4E342E';
+    ctx.fillRect(x + 4, y + 4, 24, 10);
+    ctx.fillRect(x + 4, y + 18, 24, 10);
+    // Knob
+    ctx.fillStyle = '#F9CA24';
+    ctx.fillRect(x + 24, y + 14, 4, 4);
+    ctx.fillStyle = '#F0A500';
+    ctx.fillRect(x + 25, y + 15, 2, 2);
+}
+
+// ═══════════════════════════════════════════
+// DRAWING — FLOOR OBJECTS
+// ═══════════════════════════════════════════
+function drawFloorObject(obj, t) {
+    const x = obj.tx * TILE, y = obj.ty * TILE;
+    switch(obj.id) {
+        case 'desk': drawDesk(x, y, t); break;
+        case 'console': drawConsole(x, y, t); break;
+        case 'cat': drawCat(x, y, t); break;
+        case 'whiteboard': drawWhiteboard(x, y); break;
+        case 'coffee': drawCoffeeTable(x, y, t); break;
+        case 'camera': drawCamera(x, y); break;
+        case 'plant': drawPlant(x, y, t); break;
+    }
+    // Highlight glow when near
+    if (nearObj && nearObj.id === obj.id && !panelOpen) {
+        ctx.fillStyle = 'rgba(108,92,231,0.08)';
+        ctx.fillRect(x - 2, y - 2, obj.tw * TILE + 4, obj.th * TILE + 4);
+    }
+}
+
+function drawDesk(x, y, t) {
+    // Desk shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.fillRect(x + 2, y + TILE * 3 - 4, 96 - 4, 4);
+    // Desk surface
+    ctx.fillStyle = '#5D4E37';
+    ctx.fillRect(x, y + TILE, 96, TILE * 2);
+    ctx.fillStyle = '#4A3E2E';
+    ctx.fillRect(x, y + TILE, 96, 2);
+    // Desk legs
+    ctx.fillStyle = '#3E3428';
+    ctx.fillRect(x + 2, y + TILE * 3 - 6, 4, 6);
+    ctx.fillRect(x + 90, y + TILE * 3 - 6, 4, 6);
+    // Monitor stand
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 30, y + TILE - 2, 4, 4);
+    ctx.fillRect(x + 26, y + TILE, 12, 2);
+    // Monitor frame
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 16, y - 2, 32, 22);
+    // Monitor screen
+    const flicker = Math.sin(t * 3) * 0.05 + 0.95;
+    ctx.fillStyle = `rgba(9,132,227,${flicker})`;
+    ctx.fillRect(x + 18, y, 28, 18);
+    // Code lines on screen
+    ctx.fillStyle = '#74B9FF';
+    ctx.fillRect(x + 20, y + 3, 14, 1);
+    ctx.fillStyle = '#A29BFE';
+    ctx.fillRect(x + 22, y + 5, 10, 1);
+    ctx.fillStyle = '#00B894';
+    ctx.fillRect(x + 20, y + 7, 18, 1);
+    ctx.fillStyle = '#FDCB6E';
+    ctx.fillRect(x + 22, y + 9, 8, 1);
+    ctx.fillStyle = '#74B9FF';
+    ctx.fillRect(x + 20, y + 11, 12, 1);
+    ctx.fillStyle = '#E17055';
+    ctx.fillRect(x + 20, y + 13, 16, 1);
+    // Keyboard
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 20, y + TILE + 4, 24, 8);
+    ctx.fillStyle = '#636E72';
+    for (let kr = 0; kr < 3; kr++) {
+        for (let kc = 0; kc < 8; kc++) {
+            ctx.fillRect(x + 21 + kc * 3, y + TILE + 5 + kr * 3, 2, 2);
+        }
+    }
+    // Mouse
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 50, y + TILE + 6, 4, 6);
+    ctx.fillStyle = '#DFE6E9';
+    ctx.fillRect(x + 51, y + TILE + 7, 2, 2);
+    // Desk lamp
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 78, y + TILE - 8, 2, 10);
+    ctx.fillStyle = '#F0A500';
+    ctx.fillRect(x + 74, y + TILE - 12, 10, 5);
+    // Coffee mug on desk
+    ctx.fillStyle = '#DFE6E9';
+    ctx.fillRect(x + 66, y + TILE + 4, 6, 7);
+    ctx.fillStyle = '#5D4037';
+    ctx.fillRect(x + 67, y + TILE + 5, 4, 3);
+}
+
+function drawConsole(x, y, t) {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(x + 2, y + TILE * 2 - 3, 44, 3);
+    // TV/Monitor
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 6, y - 4, 36, 22);
+    const screenColor = Math.sin(t * 2) > 0 ? '#2D8B4E' : '#34A85A';
+    ctx.fillStyle = screenColor;
+    ctx.fillRect(x + 8, y - 2, 32, 18);
+    // Retro game on screen
+    ctx.fillStyle = '#1A5C32';
+    ctx.fillRect(x + 10, y + 10, 28, 4);
+    ctx.fillStyle = '#F9CA24';
+    ctx.fillRect(x + 20 + Math.sin(t * 4) * 4, y + 4, 4, 4);
+    // Console body
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillRect(x + 8, y + 20, 32, 10);
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 10, y + 22, 28, 6);
+    // LED lights
+    ctx.fillStyle = t % 2 > 1 ? '#00E676' : '#004D25';
+    ctx.fillRect(x + 12, y + 24, 3, 2);
+    ctx.fillStyle = '#0984E3';
+    ctx.fillRect(x + 18, y + 24, 3, 2);
+    // Controller on floor
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 2, y + TILE * 2 - 8, 10, 6);
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 4, y + TILE * 2 - 6, 2, 2);
+    ctx.fillStyle = '#E17055';
+    ctx.fillRect(x + 8, y + TILE * 2 - 7, 2, 2);
+}
+
+function drawCat(x, y, t) {
+    const breathe = Math.sin(t * 1.5) > 0.3 ? 0 : 1;
+    const cy = y + breathe;
+    // Body
+    ctx.fillStyle = '#E17055';
+    ctx.fillRect(x + 4, cy + 4, 14, 8);
+    ctx.fillRect(x + 2, cy + 6, 18, 5);
+    // Head
+    ctx.fillStyle = '#E17055';
+    ctx.fillRect(x + 16, cy + 3, 10, 8);
+    // Ears
+    ctx.fillStyle = '#D63031';
+    ctx.fillRect(x + 17, cy + 1, 3, 3);
+    ctx.fillRect(x + 23, cy + 1, 3, 3);
+    // Inner ears
+    ctx.fillStyle = '#FFC0A8';
+    ctx.fillRect(x + 18, cy + 2, 1, 1);
+    ctx.fillRect(x + 24, cy + 2, 1, 1);
+    // Closed eyes (sleeping)
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 19, cy + 6, 2, 1);
+    ctx.fillRect(x + 23, cy + 6, 2, 1);
+    // Tail
+    ctx.fillStyle = '#D63031';
+    ctx.fillRect(x, cy + 6, 5, 3);
+    ctx.fillRect(x - 2, cy + 5, 3, 2);
+    // Zzz
+    if (Math.sin(t * 0.8) > 0) {
+        ctx.fillStyle = 'rgba(200,200,255,0.4)';
+        ctx.fillRect(x + 28, cy - 2, 3, 3);
+    }
+}
+
+function drawWhiteboard(x, y) {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(x + 4, y + TILE * 3 - 3, 76, 3);
+    // Stand/easel legs
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 10, y + TILE * 2 + 4, 3, TILE - 4);
+    ctx.fillRect(x + 67, y + TILE * 2 + 4, 3, TILE - 4);
+    // Board frame
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 4, y, 72, TILE * 2 + 6);
+    // Board surface
+    ctx.fillStyle = '#DFE6E9';
+    ctx.fillRect(x + 6, y + 2, 68, TILE * 2 + 2);
+    // Writing/diagrams
+    ctx.fillStyle = '#E17055';
+    ctx.fillRect(x + 10, y + 6, 20, 1); ctx.fillRect(x + 10, y + 10, 14, 1);
+    ctx.fillStyle = '#0984E3';
+    ctx.fillRect(x + 10, y + 16, 24, 1); ctx.fillRect(x + 10, y + 20, 18, 1);
+    ctx.fillStyle = '#00B894';
+    ctx.fillRect(x + 40, y + 8, 8, 8);
+    ctx.fillRect(x + 54, y + 6, 8, 8);
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 48, y + 11, 6, 1);
+    // Checkboxes
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 10, y + 26, 4, 4); ctx.fillRect(x + 10, y + 32, 4, 4);
+    ctx.fillStyle = '#00B894';
+    ctx.fillRect(x + 11, y + 27, 2, 2);
+    // Marker tray
+    ctx.fillStyle = '#B2BEC3';
+    ctx.fillRect(x + 6, y + TILE * 2 + 2, 68, 3);
+    ctx.fillStyle = '#E17055'; ctx.fillRect(x + 10, y + TILE * 2 + 1, 8, 2);
+    ctx.fillStyle = '#0984E3'; ctx.fillRect(x + 20, y + TILE * 2 + 1, 8, 2);
+    ctx.fillStyle = '#00B894'; ctx.fillRect(x + 30, y + TILE * 2 + 1, 8, 2);
+}
+
+function drawCoffeeTable(x, y) {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(x + 3, y + TILE * 2 - 3, 58, 3);
+    // Table surface
+    ctx.fillStyle = '#795548';
+    ctx.fillRect(x + 2, y + 6, 60, TILE + 4);
+    ctx.fillStyle = '#6D4C41';
+    ctx.fillRect(x + 2, y + 6, 60, 2);
+    // Table legs
+    ctx.fillStyle = '#5D4037';
+    ctx.fillRect(x + 4, y + TILE + 8, 3, TILE - 6);
+    ctx.fillRect(x + 57, y + TILE + 8, 3, TILE - 6);
+    // Coffee cup
+    ctx.fillStyle = '#DFE6E9';
+    ctx.fillRect(x + 12, y + 8, 8, 9);
+    ctx.fillStyle = '#5D4037';
+    ctx.fillRect(x + 13, y + 9, 6, 4);
+    // Handle
+    ctx.fillStyle = '#DFE6E9';
+    ctx.fillRect(x + 20, y + 10, 2, 5);
+    ctx.fillRect(x + 21, y + 11, 1, 3);
+    // Saucer
+    ctx.fillStyle = '#B2BEC3';
+    ctx.fillRect(x + 10, y + 16, 12, 2);
+    // Notebook
+    ctx.fillStyle = '#FAD390';
+    ctx.fillRect(x + 32, y + 8, 14, 10);
+    ctx.fillStyle = '#3E2723';
+    ctx.fillRect(x + 34, y + 10, 8, 1);
+    ctx.fillRect(x + 34, y + 12, 6, 1);
+    ctx.fillRect(x + 34, y + 14, 9, 1);
+    // Pen
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 50, y + 10, 1, 8);
+    ctx.fillStyle = '#6C5CE7';
+    ctx.fillRect(x + 50, y + 10, 1, 3);
+}
+
+function drawCamera(x, y) {
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.fillRect(x + 4, y + TILE * 2 - 3, 40, 3);
+    // Tripod legs
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 14, y + TILE + 4, 2, TILE - 4);
+    ctx.fillRect(x + 30, y + TILE + 4, 2, TILE - 4);
+    ctx.fillRect(x + 22, y + TILE + 2, 2, TILE - 2);
+    // Camera body
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 10, y + 2, 28, 16);
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillRect(x + 12, y + 4, 24, 12);
+    // Lens
+    ctx.fillStyle = '#636E72';
+    ctx.fillRect(x + 18, y + 6, 12, 8);
+    ctx.fillStyle = '#0984E3';
+    ctx.fillRect(x + 20, y + 8, 8, 4);
+    ctx.fillStyle = '#74B9FF';
+    ctx.fillRect(x + 22, y + 9, 4, 2);
+    // Flash
+    ctx.fillStyle = '#DFE6E9';
+    ctx.fillRect(x + 12, y, 6, 4);
+    // Red recording dot
+    ctx.fillStyle = '#E17055';
+    ctx.fillRect(x + 34, y + 4, 2, 2);
+}
+
+function drawPlant(x, y) {
+    // Pot
+    ctx.fillStyle = '#A1552A';
+    ctx.fillRect(x + 4, y + TILE + 8, 24, TILE + 8);
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x + 2, y + TILE + 6, 28, 4);
+    // Pot rim
+    ctx.fillStyle = '#C0662F';
+    ctx.fillRect(x + 2, y + TILE + 6, 28, 2);
+    // Soil
+    ctx.fillStyle = '#3E2723';
+    ctx.fillRect(x + 6, y + TILE + 8, 20, 3);
+    // Stems and leaves
+    ctx.fillStyle = '#1B7A42';
+    ctx.fillRect(x + 14, y + 4, 2, TILE + 4);
+    ctx.fillRect(x + 10, y + 8, 2, TILE);
+    ctx.fillRect(x + 20, y + 6, 2, TILE + 2);
+    // Leaves
+    ctx.fillStyle = '#00B894';
+    ctx.fillRect(x + 8, y + 2, 8, 6);
+    ctx.fillRect(x + 18, y, 8, 6);
+    ctx.fillRect(x + 4, y + 6, 8, 5);
+    ctx.fillRect(x + 20, y + 4, 8, 5);
+    // Leaf detail
+    ctx.fillStyle = '#00D2A0';
+    ctx.fillRect(x + 10, y + 3, 4, 2);
+    ctx.fillRect(x + 20, y + 1, 4, 2);
+    ctx.fillRect(x + 6, y + 7, 4, 2);
+    ctx.fillRect(x + 22, y + 5, 4, 2);
+}
+
+// ═══════════════════════════════════════════
+// DRAWING — PLAYER
+// ═══════════════════════════════════════════
+function drawPlayer() {
+    const x = Math.floor(player.x);
+    const y = Math.floor(player.y);
+    const d = player.dir;
+    const walkOff = player.moving ? ((player.frame % 2) === 0 ? 0 : 1) : 0;
+
+    // Shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(x + 3, y + 14, 10, 2);
+
+    // Shoes
+    ctx.fillStyle = '#1A1A2E';
+    ctx.fillRect(x + 4 - walkOff, y + 13, 3, 2);
+    ctx.fillRect(x + 9 + walkOff, y + 13, 3, 2);
+
+    // Pants
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(x + 4, y + 11, 3, 3);
+    ctx.fillRect(x + 9, y + 11, 3, 3);
+
+    // Body
+    ctx.fillStyle = '#6C5CE7';
+    ctx.fillRect(x + 3, y + 6, 10, 6);
+    // Shirt accent
+    ctx.fillStyle = '#A29BFE';
+    ctx.fillRect(x + 6, y + 8, 4, 1);
+
+    // Arms
+    ctx.fillStyle = '#5B4EC9';
+    if (d === 2) {
+        ctx.fillRect(x + 1, y + 7, 2, 4);
+        ctx.fillRect(x + 13, y + 8, 2, 3);
+    } else if (d === 3) {
+        ctx.fillRect(x + 13, y + 7, 2, 4);
+        ctx.fillRect(x + 1, y + 8, 2, 3);
+    } else {
+        ctx.fillRect(x + 1, y + 7, 2, 4);
+        ctx.fillRect(x + 13, y + 7, 2, 4);
+    }
+
+    // Head
+    ctx.fillStyle = '#FFDAB9';
+    ctx.fillRect(x + 4, y + 1, 8, 6);
+
+    // Hair
+    ctx.fillStyle = '#3E2723';
+    ctx.fillRect(x + 3, y, 10, 3);
+    if (d === 2) ctx.fillRect(x + 3, y, 3, 5);
+    else if (d === 3) ctx.fillRect(x + 10, y, 3, 5);
+    else {
+        ctx.fillRect(x + 3, y, 1, 4);
+        ctx.fillRect(x + 12, y, 1, 4);
+    }
+
+    // Eyes
+    ctx.fillStyle = '#2D3436';
+    if (d === 0) { // down
+        ctx.fillRect(x + 5, y + 3, 2, 2);
+        ctx.fillRect(x + 9, y + 3, 2, 2);
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(x + 5, y + 3, 1, 1);
+        ctx.fillRect(x + 9, y + 3, 1, 1);
+    } else if (d === 2) { // left
+        ctx.fillRect(x + 5, y + 3, 2, 2);
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(x + 5, y + 3, 1, 1);
+    } else if (d === 3) { // right
+        ctx.fillRect(x + 9, y + 3, 2, 2);
+        ctx.fillStyle = '#FFF';
+        ctx.fillRect(x + 9, y + 3, 1, 1);
+    }
+    // dir === 1 (up): no eyes visible
+}
+
+// ═══════════════════════════════════════════
+// DRAWING — UI & EFFECTS
+// ═══════════════════════════════════════════
+function drawBubble(text, bx, by) {
+    ctx.font = '5px "Press Start 2P", monospace';
+    const tw = ctx.measureText(text).width;
+    const bw = tw + 8, bh = 12;
+    const px = Math.floor(bx - bw / 2);
+    const py = Math.floor(by - bh - 6);
+
+    // Bubble bg
+    ctx.fillStyle = '#FFF';
+    ctx.fillRect(px, py, bw, bh);
+    // Border
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(px - 1, py, 1, bh);
+    ctx.fillRect(px + bw, py, 1, bh);
+    ctx.fillRect(px, py - 1, bw, 1);
+    ctx.fillRect(px, py + bh, bw, 1);
+    // Arrow
+    ctx.fillStyle = '#FFF';
+    ctx.fillRect(Math.floor(bx) - 2, py + bh, 4, 3);
+    ctx.fillStyle = '#2D3436';
+    ctx.fillRect(Math.floor(bx) - 3, py + bh, 1, 2);
+    ctx.fillRect(Math.floor(bx) + 2, py + bh, 1, 2);
+    ctx.fillRect(Math.floor(bx) - 2, py + bh + 2, 1, 1);
+    ctx.fillRect(Math.floor(bx) + 1, py + bh + 2, 1, 1);
+
+    // Text
+    ctx.fillStyle = '#2D3436';
+    ctx.fillText(text, px + 4, py + 8);
+}
+
+function drawVignette() {
+    const grd = ctx.createRadialGradient(NW / 2, NH / 2, NW * 0.3, NW / 2, NH / 2, NW * 0.75);
+    grd.addColorStop(0, 'rgba(0,0,0,0)');
+    grd.addColorStop(1, 'rgba(0,0,0,0.35)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, NW, NH);
+}
+
+function drawMonitorGlow(t) {
+    const dx = 3 * TILE + 16, dy = 4 * TILE - 2;
+    const pulse = 0.06 + Math.sin(t * 2) * 0.02;
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = `rgba(9,132,227,${pulse * (1 - i * 0.25)})`;
+        ctx.fillRect(dx + 18 - i * 8, dy - i * 6, 32 + i * 16, 18 + i * 12);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawLampGlow(t) {
+    const lx = 3 * TILE + 78, ly = 4 * TILE - 12;
+    const pulse = 0.05 + Math.sin(t * 1.5) * 0.015;
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = `rgba(240,165,0,${pulse * (1 - i * 0.3)})`;
+        ctx.fillRect(lx - 4 - i * 6, ly - i * 4, 18 + i * 12, 12 + i * 8);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+// ═══════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════
+function checkProximity() {
+    nearObj = null;
+    const pcx = player.x + 8, pcy = player.y + 8;
+    let minDist = Infinity;
+    for (const obj of objects) {
+        const ocx = (obj.tx + obj.tw / 2) * TILE;
+        const ocy = (obj.ty + obj.th / 2) * TILE;
+        const dist = Math.hypot(pcx - ocx, pcy - ocy);
+        const threshold = obj.wall ? TILE * 3 : TILE * 2.5;
+        if (dist < threshold && dist < minDist) {
+            minDist = dist;
+            nearObj = obj;
+        }
+    }
+}
+
+function interact() {
+    if (!started || panelOpen) return;
+    if (nearObj) showPanel(nearObj.id);
+}
+
+function showPanel(id) {
+    const data = infoData[id];
+    if (!data) return;
+    const panel = document.getElementById('panel-content');
+    panel.innerHTML = '<h2>' + data.title + '</h2>' + data.html;
+    document.getElementById('info-panel').classList.add('open');
+    panelOpen = true;
+}
+
+window.closePanel = function() {
+    document.getElementById('info-panel').classList.remove('open');
+    panelOpen = false;
+};
+
+window.startGame = function() {
+    document.getElementById('instructions').style.display = 'none';
+    started = true;
+};
+
+// ═══════════════════════════════════════════
+// UPDATE
+// ═══════════════════════════════════════════
+let steamTimer = 0, dustTimer = 0;
+
+function update(dt) {
+    // Player movement
+    let dx = 0, dy = 0;
+    if (keys.ArrowLeft || keys.KeyA || touchDirs.left) dx = -1;
+    if (keys.ArrowRight || keys.KeyD || touchDirs.right) dx = 1;
+    if (keys.ArrowUp || keys.KeyW || touchDirs.up) dy = -1;
+    if (keys.ArrowDown || keys.KeyS || touchDirs.down) dy = 1;
+
+    if (dx && dy) { dx *= 0.707; dy *= 0.707; }
+
+    const spd = player.speed * dt;
+    const nx = player.x + dx * spd;
+    const ny = player.y + dy * spd;
+
+    if (dx !== 0 && !blocked(nx, player.y)) player.x = nx;
+    if (dy !== 0 && !blocked(player.x, ny)) player.y = ny;
+
+    // Direction
+    if (dx < 0) player.dir = 2;
+    else if (dx > 0) player.dir = 3;
+    else if (dy < 0) player.dir = 1;
+    else if (dy > 0) player.dir = 0;
+
+    // Walk animation
+    player.moving = (dx !== 0 || dy !== 0);
+    if (player.moving) {
+        player.frameTimer += dt;
+        if (player.frameTimer > 8) {
+            player.frameTimer = 0;
+            player.frame = (player.frame + 1) % 4;
+        }
+    } else {
+        player.frame = 0;
+        player.frameTimer = 0;
+    }
+
+    // Proximity
+    checkProximity();
+
+    // Particles
+    steamTimer += dt;
+    if (steamTimer > 6) { steamTimer = 0; spawnSteam(); }
+    dustTimer += dt;
+    if (dustTimer > 30) { dustTimer = 0; spawnDust(); }
+    updateParticles(dt);
+
+    gameTime += dt * 0.016;
+}
+
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function render() {
+    // Background
+    ctx.fillStyle = '#0A0A14';
+    ctx.fillRect(0, 0, NW, NH);
+
+    drawFloor();
+    drawRug();
+    drawWalls();
+    drawWallObjects(gameTime);
+
+    // Depth-sorted floor entities
+    const entities = [];
+    for (const obj of objects) {
+        if (obj.wall) continue;
+        entities.push({ y: (obj.ty + obj.th) * TILE, fn: () => drawFloorObject(obj, gameTime) });
+    }
+    entities.push({ y: player.y + 16, fn: drawPlayer });
+    entities.sort((a, b) => a.y - b.y);
+    for (const e of entities) e.fn();
+
+    // Ambient lighting
+    drawMonitorGlow(gameTime);
+    drawLampGlow(gameTime);
+
+    // Particles
+    drawParticles();
+
+    // UI bubble
+    if (nearObj && !panelOpen) {
+        const ox = (nearObj.tx + nearObj.tw / 2) * TILE;
+        const oy = nearObj.ty * TILE;
+        drawBubble('Press E', ox, oy);
+    }
+
+    // Vignette
+    drawVignette();
+}
+
+// ═══════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════
+let lastTime = 0;
+function loop(timestamp) {
+    const rawDt = timestamp - lastTime;
+    lastTime = timestamp;
+    const dt = Math.min(rawDt / 16.667, 3); // normalize to ~60fps frames
+
+    if (started && !panelOpen) update(dt);
+    render();
+    requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+function init() {
+    buildCollision();
+    resize();
+    // Seed initial dust particles
+    for (let i = 0; i < 6; i++) spawnDust();
+    requestAnimationFrame(loop);
+}
+
+document.fonts.ready.then(init);
+
+})();
+</script>
+</body>
+</html>
